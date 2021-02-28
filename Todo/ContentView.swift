@@ -37,8 +37,6 @@ struct ContentView: View {
                     self.addTodo(todo: self.todoText)
                 }, label: {
                     Text("Добавить")
-                        .foregroundColor(.red)
-                        
             })
         }
     }
