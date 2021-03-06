@@ -6,85 +6,107 @@
 //
 
 import SwiftUI
-import Combine
 
 
 struct ContentView: View {
     
-    @ObservedObject var taskStore = TaskStore()
-    @State var todoText : String = ""
-    
-    var searchBar : some View{
-        
-        HStack {
-            TextField("Текст заметки...", text: self.$todoText)
-                .frame( height: 48, alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/)
-                .padding(.horizontal, 12)
-                .background(Color.white)
-                .cornerRadius(48)
-            
-            Button(action: {
-                self.add()
-            }, label: {
-                Text("Add")
-                    .frame( height: 48, alignment: /*@START_MENU_TOKEN@*/.center/*@END_MENU_TOKEN@*/)
-                    .padding(.horizontal, 24)
-                    .foregroundColor(.white)
-                    .background(Color.blue)
-                    .cornerRadius(48)
-            })
-        }
-    }
+    @State var posts : [Post] = [
+        Post(
+            id: 1,
+            title: "Title",
+            body: "Lorem inpsum..."
+        )
+    ]
     
     var body: some View {
-        ZStack{
-            
-            Color.black.ignoresSafeArea(.all)
-            
-            NavigationView{
-                VStack{
-                    List{
-                        ForEach(self.taskStore.task){ task in
-                            Text(task.text)
-                        }
-                        .onMove(perform: self.move)
-                        .onDelete(perform: self.delete)
-                    }
-                    searchBar.padding()
-                }
-                .navigationBarTitle("Заметки")
-                .navigationBarItems(trailing: EditButton())
+        NavigationView() {
+            ScrollView{
+                PostListView(posts: posts)
             }
-            
+            .onAppear(){
+                API().getPost { (posts) in
+                    self.posts = posts
+                }
+            }
+            .navigationBarItems(
+                leading: Text("Posts"),
+                trailing: Image(systemName: "network").foregroundColor(/*@START_MENU_TOKEN@*/.blue/*@END_MENU_TOKEN@*/)
+            )
         }
     }
+}
+
+
+struct Post: Codable, Identifiable {
+    var id:Int
+    var title: String
+    var body: String
+}
+
+class API {
     
-    
-    func add() {
-        if self.todoText != "" {
-            taskStore.task.append(
-                Task(
-                    id:taskStore.task.count + 1,
-                    text:self.todoText
-                ))
-            self.todoText = ""
-        }else{}
-    }
-    
-    func move(from fromIndex: IndexSet, to toIndex: Int){
-        taskStore.task.move(
-            fromOffsets: fromIndex,
-            toOffset:toIndex
-        )
-    }
-    
-    func delete(at index: IndexSet) -> Void {
-        taskStore.task.remove(atOffsets: index)
+    //    метод в который мы передаем callback/closure
+    func getPost(complition: @escaping ([Post]) -> ()) {
+        
+        guard let url = URL(string: "https://jsonplaceholder.typicode.com/posts")
+        else { return }
+        
+        URLSession.shared.dataTask(with: url) { (data, _, _) in
+            
+            let posts = try! JSONDecoder().decode([Post].self , from: data!)
+            
+            DispatchQueue.main.async {
+                //                декодируем данные и после прокидываем их в параметры
+                //                нашего callback/closure
+                complition(posts)
+            }
+        }
+        .resume()
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+struct TextView: View {
+    
+    var text: String
+    
+    var body: some View {
+        HStack{
+            Text(text)
+                .foregroundColor(Color.white)
+            Spacer()
+        }
+    }
+}
+
+struct PostListView: View {
+    
+    @State var viewAll: Bool = false
+    var posts: [Post] = []
+    
+    var body: some View {
+        ForEach(posts){ post in
+            VStack(alignment: .leading, spacing: 4){
+                TextView(text: post.title)
+                    .font(.headline)
+                TextView(text: post.body)
+                    .lineLimit( viewAll  ? nil : 2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.blue)
+            .cornerRadius(16)
+            .shadow(color: Color.blue.opacity(0.4), radius: 12, x: 0, y: 12)
+            .animation(/*@START_MENU_TOKEN@*/.easeIn/*@END_MENU_TOKEN@*/)
+        }
+        .padding()
+        .onTapGesture {
+            self.viewAll.toggle()
+        }
     }
 }
